@@ -1,7 +1,9 @@
 package com.test.qTestApp.ServiceImpl;
 
+import com.test.qTestApp.Dto.CommentResponseDto;
 import com.test.qTestApp.Dto.CreateOrUpdateCommentDto;
 import com.test.qTestApp.Dto.CreateOrUpdatePostDto;
+import com.test.qTestApp.Dto.PostResponseDto;
 import com.test.qTestApp.Models.Comment;
 import com.test.qTestApp.Models.Post;
 import com.test.qTestApp.Models.User;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -106,10 +109,21 @@ public class CommentServiceImpl implements CommentService {
             // Retrieve all comments associated with the Post
             List<Comment> comments = commentRepository.findByPost(optionalPost.get());
 
+            //
+            //Convert comments to COmmentResponseDto
+            List<CommentResponseDto> commentResponseDtos = comments.stream().map(comment -> {
+                CommentResponseDto dto = new CommentResponseDto();
+                dto.setId(comment.getId());
+                dto.setContent(comment.getContent());
+                dto.setUsername(comment.getAuthor().getFirstname()+ " "+comment.getAuthor().getLastname());
+                dto.setAuthorId(comment.getAuthor().getId());
+                return dto;
+            }).collect(Collectors.toList());
+
             // Return a successful response with the comments
             return ApiResponse.builder()
                     .message("Comments retrieved successfully")
-                    .data(comments)
+                    .data(commentResponseDtos)
                     .success(true)
                     .build();
         } catch (Exception e) {
@@ -117,7 +131,7 @@ public class CommentServiceImpl implements CommentService {
         }
     }
 
-    //this the controller for updating the post
+    //this is to update  the comment
     @Override
     public ApiResponse<Object> updateComment(UUID commentId, CreateOrUpdateCommentDto dto) throws Exception {
         try {

@@ -7,6 +7,7 @@ import com.test.qTestApp.Models.User;
 import com.test.qTestApp.Repository.UserRepository;
 import com.test.qTestApp.Response.ApiResponse;
 import com.test.qTestApp.Service.JwtService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 
 import org.apache.coyote.BadRequestException;
@@ -14,6 +15,7 @@ import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -50,6 +52,26 @@ public class AuthService {
                 .status(HttpStatus.OK)
                 .build();
 
+    }
+
+    public ApiResponse<Object> logoutUser(HttpServletRequest request) {
+        // Clear the security context
+        SecurityContextHolder.clearContext();
+
+        // Get the JWT token from the request header
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            String token = authHeader.substring(7);
+            // Invalidate the token
+            jwtService.invalidateToken(token);
+        }
+
+        return ApiResponse.builder()
+                .success(true)
+                .data(null)
+                .message("Logged out successfully")
+                .status(HttpStatus.OK)
+                .build();
     }
 }
 

@@ -10,10 +10,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+
 @Repository
 public interface CommentRepository extends JpaRepository<Comment, UUID> {
     Optional<Comment> findByAuthorAndPost(User author, Post post);
 
     List<Comment> findByPost(Post post);
+    void deleteByPost(Post post);
 }
 

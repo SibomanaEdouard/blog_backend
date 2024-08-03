@@ -2,16 +2,20 @@ package com.test.qTestApp.ServiceImpl;
 
 
 
+import com.test.qTestApp.Dto.CommentResponseDto;
 import com.test.qTestApp.Dto.CreateOrUpdatePostDto;
+import com.test.qTestApp.Dto.MyPostResponse;
 import com.test.qTestApp.Dto.PostResponseDto;
 import com.test.qTestApp.Models.Post;
 import com.test.qTestApp.Models.User;
+import com.test.qTestApp.Repository.CommentRepository;
 import com.test.qTestApp.Repository.PostRepository;
 import com.test.qTestApp.Repository.UserRepository;
 import com.test.qTestApp.Response.ApiResponse;
 import com.test.qTestApp.Response.UserResponse;
 import com.test.qTestApp.Service.PostService;
 import com.test.qTestApp.utils.GetLoggedUser;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.apache.coyote.BadRequestException;
 import org.springframework.stereotype.Service;
@@ -21,6 +25,8 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+
+
 @Service
 @RequiredArgsConstructor
 public class PostServiceImpl implements PostService {
@@ -28,6 +34,7 @@ public class PostServiceImpl implements PostService {
     private final GetLoggedUser getLoggedUser;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private  final CommentRepository commentRepository;
 
     @Override
     public ApiResponse<Object> createPost(CreateOrUpdatePostDto dto) throws Exception {
@@ -117,9 +124,13 @@ public class PostServiceImpl implements PostService {
 
             Post post = optionalPost.get();
 
-            // Update the post details
-            post.setTitle(dto.getTitle());
-            post.setContent(dto.getContent());
+            // Update the post details only if the dto fields are not null or empty
+            if (dto.getTitle() != null && !dto.getTitle().trim().isEmpty()) {
+                post.setTitle(dto.getTitle());
+            }
+            if (dto.getContent() != null && !dto.getContent().trim().isEmpty()) {
+                post.setContent(dto.getContent());
+            }
 
             // Save the updated post
             Post updatedPost = postRepository.save(post);
@@ -137,6 +148,7 @@ public class PostServiceImpl implements PostService {
     }
 
 
+    @Transactional
     @Override
     public ApiResponse<Object> deletePost(UUID id) throws Exception {
         try {
@@ -170,7 +182,8 @@ public class PostServiceImpl implements PostService {
             }
 
             Post post = optionalPost.get();
-
+//this is to delete comments before
+            commentRepository.deleteByPost(post);
             // Delete the post
             postRepository.delete(post);
 
@@ -218,11 +231,22 @@ public class PostServiceImpl implements PostService {
                         .build();
             }
 
-            Post myPost = optionalPost.get();
+//            Post myPost = optionalPost.get();
+
+            //Convert post to myPostresponsedto
+            List<MyPostResponse> myPostResponses = optionalPost.stream().map(comment -> {
+                MyPostResponse dto = new MyPostResponse();
+                dto.setId(optionalPost.get().getId());
+                dto.setContent(optionalPost.get().getContent());
+                dto.setTitle(optionalPost.get().getTitle());
+                dto.setAuthorId(optionalPost.get().getAuthor().getId());
+                dto.setUsername(optionalPost.get().getAuthor().getFirstname()+ " "+optionalPost.get().getAuthor().getLastname());
+                return dto;
+            }).collect(Collectors.toList());
 
             // Return success response
             return ApiResponse.builder()
-                    .data(myPost)
+                    .data(myPostResponses)
                     .success(true)
                     .build();
 
@@ -258,16 +282,30 @@ public class PostServiceImpl implements PostService {
             // Find all posts by the logged user
             List<Post> posts = postRepository.findByAuthor(user);
 
+            // Convert post to MyPostResponse DTO
+            List<MyPostResponse> myPostResponses = posts.stream().map(post -> {
+                MyPostResponse dto = new MyPostResponse();
+                dto.setId(post.getId());
+                dto.setContent(post.getContent());
+                dto.setTitle(post.getTitle());
+                dto.setAuthorId(post.getAuthor().getId());
+                dto.setUsername(post.getAuthor().getFirstname() + " " + post.getAuthor().getLastname());
+                return dto;
+            }).collect(Collectors.toList());
+
             // Return success response
             return ApiResponse.builder()
-                    .data(posts)
+                    .data(myPostResponses)
                     .success(true)
                     .build();
 
         } catch (Exception e) {
+            // Consider logging the error here for debugging
+            // log.error("Error fetching posts", e);
             throw new Exception("Internal server error: " + e.getMessage());
         }
     }
+
 
 
     @Override
@@ -283,6 +321,7 @@ public class PostServiceImpl implements PostService {
                 dto.setTitle(post.getTitle());
                 dto.setContent(post.getContent());
                 dto.setUsername(post.getAuthor().getFirstname()+ " "+post.getAuthor().getLastname());
+                dto.setAuthorId(post.getAuthor().getId());
                 return dto;
             }).collect(Collectors.toList());
 

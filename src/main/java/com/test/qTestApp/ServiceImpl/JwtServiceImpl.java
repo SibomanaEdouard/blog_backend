@@ -21,6 +21,8 @@ import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 
 @Service
@@ -28,7 +30,7 @@ import java.util.function.Function;
 public class JwtServiceImpl implements JwtService {
     @Value("${security.jwt.secret-key}")
     private String SECRET_KEY;
-
+    private final Set<String> invalidatedTokens = ConcurrentHashMap.newKeySet();
 
     @Override
     public String extractUserEmail(String token) {
@@ -70,11 +72,6 @@ public class JwtServiceImpl implements JwtService {
                 .signWith(getSigninKey(), SignatureAlgorithm.HS256).compact();
     }
 
-    @Override
-    public Boolean isTokenValid(String token, UserDetails userDetails) {
-        final String username = extractUserEmail(token);
-        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token);
-    }
 
     @Override
     public Boolean isTokenExpired(String token) {
@@ -84,6 +81,22 @@ public class JwtServiceImpl implements JwtService {
     @Override
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
+    }
+
+    @Override
+    public Boolean isTokenValid(String token, UserDetails userDetails) {
+        final String username = extractUserEmail(token);
+        return (username.equals(userDetails.getUsername())) && !isTokenExpired(token) && !isTokenInvalidated(token);
+    }
+
+    @Override
+    public void invalidateToken(String token) {
+        invalidatedTokens.add(token);
+    }
+
+    @Override
+    public boolean isTokenInvalidated(String token) {
+        return invalidatedTokens.contains(token);
     }
 }
 
